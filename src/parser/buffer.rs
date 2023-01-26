@@ -53,18 +53,38 @@ impl<'a> DnsPacketBuffer<'a> {
     }
 
     pub fn read_name(&mut self) -> String {
-        if self.peek_u8() & 0xC0 > 0 {
-            let mut copy = *self;
-            copy.ptr = (self.read_u16() & !0xC000) as usize;
-            copy.read_name()
-        } else {
-            let mut cname = Vec::new();
-            loop {
-                let len = self.read_u8();
-                if len == 0 {break}
-                cname.push((0..len).map(|_| std::str::from_utf8(&[self.read_u8()]).expect("Invalid ASCII character.").to_string()).collect::<Vec<String>>().concat());
+        let mut cname: Vec<String> = Vec::new();
+        loop {
+            let len = self.peek_u8();
+            if len == 0 { self.ptr += 1; return cname.join(".") }
+            if len & 0xC0u8 == 0xC0u8 {
+                let mut copy = *self;
+                copy.ptr = (self.read_u16() & !0xC000u16) as usize;
+                cname.push(copy.read_name());
+                return cname.join(".")
+            } else {
+                cname.push((0..self.read_u8()).map(|_| {
+                    std::str::from_utf8(&[self.read_u8()]).expect("Invalid ASCII character.").to_string()
+                }).collect::<Vec<String>>().concat());
             }
-            cname.join(".")
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::DnsPacketBuffer;
+
+    #[test]
+    fn test_read_u16() {
+        let mut buffer = DnsPacketBuffer::new(&[0xc0, 0x0c, 0x11]); 
+        assert_eq!(buffer.read_u16(), 0xc00cu16);
+        assert_eq!(buffer.peek_u8(), 0x11u8);
+    }
+
+    #[test]
+    fn test_read_name() {
+        let mut buffer = DnsPacketBuffer::new(&[0x3, 'a' as u8, 'b' as u8, 'c' as u8, 0x0]);
+        assert_eq!(buffer.read_name(), "abc".to_string())
     }
 }

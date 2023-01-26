@@ -78,7 +78,7 @@ async fn handle_tls(listener: TcpListener, acceptor: tokio_native_tls::TlsAccept
 
 async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let packet = if len == 0 {DnsPacket::from(bytes)} else {DnsPacket::from_tcp(bytes, len)};
-    println!("Incoming Packet:\n{:?}", packet);
+    println!("Incoming Packet:\n{:#?}", packet);
     let socket = TcpStream::connect((DNS_SERVER, DNS_SERVER_PORT));
     let cx = tokio_native_tls::TlsConnector::from(native_tls::TlsConnector::builder().build()?);
     let mut socket = cx.connect(DNS_SERVER, socket.await?).await?;
@@ -96,7 +96,9 @@ async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn
         Err(e) => return Err(Box::new(e)),
     };
 
+    std::fs::write("./dump.bin", &buf[0..len]).expect("Failed to write dump.");
+
     let packet = DnsPacket::from_tcp(&buf, len);
-    println!("Outgoing Packet:\n{:?}\n", packet);
+    println!("Outgoing Packet:\n{:#?}\n", packet);
     Ok(buf.to_vec())
 }
