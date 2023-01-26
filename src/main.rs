@@ -96,8 +96,6 @@ async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn
         Err(e) => return Err(Box::new(e)),
     };
 
-    std::fs::write("./dump.bin", &buf[0..len]).expect("Failed to write dump.");
-
     let packet = DnsPacket::from_tcp(&buf, len);
     println!("Outgoing Packet:\n{:#?}\n", packet);
     Ok(buf.to_vec())
