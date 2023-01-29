@@ -1,7 +1,8 @@
-use parser::DnsPacket;
+use dns::DnsPacket;
 use tokio::{net::{TcpListener, TcpStream, UdpSocket}, io::{AsyncReadExt, AsyncWriteExt}};
 use tokio_native_tls::native_tls::{Identity, self};
-mod parser;
+mod dns;
+mod cache;
 
 const ADDRESS: &'static str = "127.0.0.1";
 const PORT: u16 = 5300;
@@ -98,5 +99,5 @@ async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn
 
     let packet = DnsPacket::from_tcp(&buf, len);
     println!("Outgoing Packet:\n{:#?}\n", packet);
-    Ok(buf.into())
+    Ok(packet.bytes())
 }

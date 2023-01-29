@@ -1,7 +1,7 @@
 use self::{buffer::DnsPacketBuffer, record::{Record}, util::Serialize};
 
 mod buffer;
-mod record;
+pub mod record;
 mod util;
 
 #[derive(Debug, Clone, Copy)]
@@ -23,10 +23,10 @@ impl From<u16> for HeaderFlags {
         Self {
             response: value & 0x8000 > 0,
             opcode: ((value >> 11) & 0xf) as u8,
-            auth_answer: value & 0x4000 > 0,
-            truncated: value & 0x2000 > 0,
-            recursion_desired: value & 0x1000 > 0,
-            recursion_available: value & 0x800 > 0,
+            auth_answer: value & 0x400 > 0,
+            truncated: value & 0x200 > 0,
+            recursion_desired: value & 0x100 > 0,
+            recursion_available: value & 0x80 > 0,
             z: ((value >> 4) & 0b111) as u8,
             r_code: (value & 0b1111) as u8,
         }
@@ -80,13 +80,13 @@ pub struct Question {
 
 impl Into<Vec<u8>> for Question {
     fn into(self) -> Vec<u8> {
-        [string_to_bytes(&self.cname), [self.rr_type.to_be_bytes(), self.class.to_be_bytes()].concat()].concat()
+        [string_to_bytes(&self.cname), [self.rr_type.to_be_bytes().to_vec(), self.class.to_be_bytes().to_vec()].concat()].concat()
     }
 }
 
 impl Serialize<Vec<u8>> for Question {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DnsPacket {
     len: u16,
     header: Header,
@@ -123,12 +123,12 @@ impl<'a> From<&'a [u8]> for DnsPacket {
 }
 
 fn string_to_bytes(string: &String) -> Vec<u8> {
-    string.split(".").map(|s| 
+    [string.split(".").map(|s| 
         [
             vec![s.len() as u8], 
-            s.chars().into_iter().map(|c| c as u8).collect::<Vec<u8>>()
+            s.chars().into_iter().map(|c| c as u8).collect::<Vec<u8>>(),
         ].concat()
-    ).collect::<Vec<Vec<u8>>>().concat()
+    ).collect::<Vec<Vec<u8>>>().concat(), vec![0]].concat()
 }
 
 impl Into<Vec<u8>> for DnsPacket {
@@ -148,5 +148,33 @@ impl DnsPacket {
 
     pub fn from_tcp<'a>(bytes: &'a [u8], len: usize) -> Self {
         bytes[2..len].into()
+    }
+
+    pub fn bytes(self) -> Vec<u8> {
+        let packet: Vec<u8> = self.into();
+        [(packet.len() as u16).to_be_bytes().to_vec(), packet].concat()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{HeaderFlags};
+
+    #[test]
+    fn header_manual() {
+        let packet = 0x8180u16;
+        let flags = HeaderFlags { 
+            response: true, opcode: 0, auth_answer: false, truncated: false, recursion_desired: true, recursion_available: true, z: 0, r_code: 0 
+        };
+        let serialized: u16 = flags.into();
+        assert_eq!(serialized, packet);
+    }
+
+    #[test]
+    fn header_serializing() {
+        let packet = 0x8180u16;
+        let header: HeaderFlags = packet.into();
+        let serialized: u16 = header.into();
+        assert_eq!(serialized, packet);
     }
 }
