@@ -1,13 +1,8 @@
-use self::buffer::DnsPacketBuffer;
+use self::{buffer::DnsPacketBuffer, record::{Record}, util::Serialize};
 
 mod buffer;
-
-trait Serialize<T> where Self: Into<T>{
-    #[inline]
-    fn serialize(self) -> T {
-        self.into()
-    }
-}
+mod record;
+mod util;
 
 #[derive(Debug, Clone, Copy)]
 pub struct HeaderFlags {
@@ -78,42 +73,25 @@ impl Serialize<Vec<u8>> for Header {}
 
 #[derive(Debug, Clone)]
 pub struct Question {
-    name: String,
+    cname: String,
     rr_type: u16,
     class: u16,
 }
 
 impl Into<Vec<u8>> for Question {
     fn into(self) -> Vec<u8> {
-        [string_to_bytes(&self.name), [self.rr_type.to_be_bytes(), self.class.to_be_bytes()].concat()].concat()
+        [string_to_bytes(&self.cname), [self.rr_type.to_be_bytes(), self.class.to_be_bytes()].concat()].concat()
     }
 }
 
 impl Serialize<Vec<u8>> for Question {}
-
-#[derive(Debug, Clone)]
-pub struct Answer {
-    name: String,
-    rr_type: u16,
-    class: u16,
-    ttl: u32,
-    rd_data: Vec<u8>
-}
-
-impl Into<Vec<u8>> for Answer {
-    fn into(self) -> Vec<u8> {
-        [string_to_bytes(&self.name), [self.rr_type.to_be_bytes(), self.class.to_be_bytes()].concat(), self.ttl.to_be_bytes().to_vec(), self.rd_data].concat()
-    }
-}
-
-impl Serialize<Vec<u8>> for Answer {}
 
 #[derive(Debug)]
 pub struct DnsPacket {
     len: u16,
     header: Header,
     questions: Vec<Question>,
-    answers: Vec<Answer>
+    records: Vec<Record>
 }
 
 impl<'a> From<&'a [u8]> for DnsPacket {
@@ -129,23 +107,17 @@ impl<'a> From<&'a [u8]> for DnsPacket {
         };
         let questions = (0..header.questions)
             .map(|_| Question {
-                name: buffer.read_name(),
+                cname: buffer.read_name(),
                 rr_type: buffer.read_u16(),
                 class: buffer.read_u16(),
             }).collect::<Vec<Question>>();
-        let answers = (0..header.answer_rrs)
-            .map(|_| Answer {
-                name: buffer.read_name(),
-                rr_type: buffer.read_u16(),
-                class: buffer.read_u16(),
-                ttl: buffer.read_u32(),
-                rd_data: {let n = buffer.read_u16(); buffer.read_n(n as usize)},
-            }).collect::<Vec<Answer>>();
+        let records = (0..header.answer_rrs)
+            .map(|_| Record::new(&mut buffer)).collect::<Vec<Record>>();
         Self {
             len: buffer.position() as u16,
             header,
             questions,
-            answers,
+            records,
         }
     }
 }
@@ -164,7 +136,7 @@ impl Into<Vec<u8>> for DnsPacket {
         [
             self.header.serialize(), 
             self.questions.iter().map(|q| q.clone().serialize()).collect::<Vec<Vec<u8>>>().concat(), 
-            self.answers.iter().map(|a| a.clone().serialize()).collect::<Vec<Vec<u8>>>().concat()
+            self.records.iter().map(|a| a.clone().serialize()).collect::<Vec<Vec<u8>>>().concat()
         ].concat()
     }
 }

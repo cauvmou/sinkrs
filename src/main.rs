@@ -98,5 +98,5 @@ async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn
 
     let packet = DnsPacket::from_tcp(&buf, len);
     println!("Outgoing Packet:\n{:#?}\n", packet);
-    Ok(buf.to_vec())
+    Ok(buf.into())
 }
