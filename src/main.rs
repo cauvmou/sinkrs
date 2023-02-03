@@ -95,8 +95,10 @@ async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn
         Ok(n) => n,
         Err(e) => return Err(Box::new(e)),
     };
+    std::fs::write("expected.dns", &buf[0..len]);
 
     let packet = DnsPacket::from_tcp(&buf, len);
     println!("Outgoing Packet:\n{:#?}\n", packet);
+    std::fs::write("./out.dns", packet.clone().bytes());
     Ok(packet.bytes())
 }
