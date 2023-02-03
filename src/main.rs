@@ -1,7 +1,11 @@
 use dns::DnsPacket;
+use filter::Blacklist;
 use tokio::{net::{TcpListener, TcpStream, UdpSocket}, io::{AsyncReadExt, AsyncWriteExt}};
 use tokio_native_tls::native_tls::{Identity, self};
+
+use crate::filter::BLACKLIST;
 mod dns;
+mod filter;
 
 const ADDRESS: &'static str = "127.0.0.1";
 const PORT: u16 = 5300;
@@ -77,18 +81,16 @@ async fn handle_tls(listener: TcpListener, acceptor: tokio_native_tls::TlsAccept
 }
 
 async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let packet = if len == 0 {DnsPacket::from(bytes)} else {DnsPacket::from_tcp(bytes, len)};
+    let mut packet = if len == 0 {DnsPacket::from(bytes)} else {DnsPacket::from_tcp(bytes, len)};
     println!("Incoming Packet:\n{:#?}", packet);
     let socket = TcpStream::connect((DNS_SERVER, DNS_SERVER_PORT));
     let cx = tokio_native_tls::TlsConnector::from(native_tls::TlsConnector::builder().build()?);
     let mut socket = cx.connect(DNS_SERVER, socket.await?).await?;
 
-    let mut bytes = bytes.to_vec();
-    if len == 0 {
-        bytes = [packet.size(), bytes.to_vec()].concat()
-    }
+    // Check blacklist
+    packet.questions = packet.questions.iter().filter(|q| !BLACKLIST.is_blocked(&q.cname)).map(|q| q.clone()).collect();
 
-    socket.write_all(&bytes).await?;
+    socket.write_all(&packet.bytes()).await?;
     let mut buf = [0; 1024];
     let len = match socket.read(&mut buf).await {
         Ok(n) if n == 0 => return Ok(Vec::new()),

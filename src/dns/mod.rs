@@ -73,7 +73,7 @@ impl Serialize<Vec<u8>> for Header {}
 
 #[derive(Debug, Clone)]
 pub struct Question {
-    cname: String,
+    pub cname: String,
     rr_type: u16,
     class: u16,
 }
@@ -90,8 +90,8 @@ impl Serialize<Vec<u8>> for Question {}
 pub struct DnsPacket {
     len: u16,
     header: Header,
-    questions: Vec<Question>,
-    records: Vec<Record>
+    pub questions: Vec<Question>,
+    pub records: Vec<Record>
 }
 
 impl<'a> From<&'a [u8]> for DnsPacket {
