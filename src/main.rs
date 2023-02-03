@@ -87,9 +87,10 @@ async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn
     let cx = tokio_native_tls::TlsConnector::from(native_tls::TlsConnector::builder().build()?);
     let mut socket = cx.connect(DNS_SERVER, socket.await?).await?;
 
+    
     // Check blacklist
     packet.questions = packet.questions.iter().filter(|q| !BLACKLIST.is_blocked(&q.cname)).map(|q| q.clone()).collect();
-
+    
     socket.write_all(&packet.bytes()).await?;
     let mut buf = [0; 1024];
     let len = match socket.read(&mut buf).await {
@@ -97,7 +98,7 @@ async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn
         Ok(n) => n,
         Err(e) => return Err(Box::new(e)),
     };
-
+    
     let packet = DnsPacket::from_tcp(&buf, len);
     println!("Outgoing Packet:\n{:#?}\n", packet);
     Ok(packet.bytes())

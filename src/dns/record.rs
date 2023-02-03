@@ -71,7 +71,10 @@ impl RecordData {
             RecordData::UNKNOWN(data) => [(data.len() as u16).to_be_bytes().to_vec(), data.to_vec()].concat(),
             RecordData::A(ip) => [4u16.to_be_bytes().to_vec(), ip.octets().to_vec()].concat(),
             RecordData::AAAA(ip) => [16u16.to_be_bytes().to_vec(), ip.octets().to_vec()].concat(),
-            RecordData::CNAME(name) => string_to_bytes(name),
+            RecordData::CNAME(name) => {
+                let bytes = string_to_bytes(name);
+                [(bytes.len() as u16).to_be_bytes().to_vec(), bytes].concat()
+            },
         }
     }
 }
