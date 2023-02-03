@@ -2,7 +2,6 @@ use dns::DnsPacket;
 use tokio::{net::{TcpListener, TcpStream, UdpSocket}, io::{AsyncReadExt, AsyncWriteExt}};
 use tokio_native_tls::native_tls::{Identity, self};
 mod dns;
-mod cache;
 
 const ADDRESS: &'static str = "127.0.0.1";
 const PORT: u16 = 5300;
