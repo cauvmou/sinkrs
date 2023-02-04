@@ -1,2 +1,5 @@
+# This is a comment
 google.com
-images.google.com
+google.at
+*.google.com
+example.com

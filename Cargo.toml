@@ -7,3 +7,4 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 tokio-native-tls = "^0.3"
 lazy_static = "^1.4.0"
+fastmurmur3 = "^0.1.2"
