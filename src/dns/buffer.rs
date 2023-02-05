@@ -13,10 +13,6 @@ impl<'a> DnsPacketBuffer<'a> {
         }
     }
 
-    pub fn position(&self) -> usize {
-        self.ptr
-    }
-
     #[inline]
     pub fn peek_u8(&self) -> u8 {
         self.buf[self.ptr]

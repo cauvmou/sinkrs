@@ -68,10 +68,13 @@ impl RecordData {
 
     pub fn serialize(&self) -> Vec<u8> {
         match self {
-            RecordData::UNKNOWN(data) => data.to_vec(),
-            RecordData::A(ip) => ip.octets().to_vec(),
-            RecordData::AAAA(ip) => ip.octets().to_vec(),
-            RecordData::CNAME(name) => string_to_bytes(name),
+            RecordData::UNKNOWN(data) => [(data.len() as u16).to_be_bytes().to_vec(), data.to_vec()].concat(),
+            RecordData::A(ip) => [4u16.to_be_bytes().to_vec(), ip.octets().to_vec()].concat(),
+            RecordData::AAAA(ip) => [16u16.to_be_bytes().to_vec(), ip.octets().to_vec()].concat(),
+            RecordData::CNAME(name) => {
+                let bytes = string_to_bytes(name);
+                [(bytes.len() as u16).to_be_bytes().to_vec(), bytes].concat()
+            },
         }
     }
 }

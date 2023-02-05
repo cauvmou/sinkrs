@@ -1,7 +1,10 @@
 use dns::DnsPacket;
 use tokio::{net::{TcpListener, TcpStream, UdpSocket}, io::{AsyncReadExt, AsyncWriteExt}};
 use tokio_native_tls::native_tls::{Identity, self};
+
+use crate::filter::BLACKLIST;
 mod dns;
+mod filter;
 
 const ADDRESS: &'static str = "127.0.0.1";
 const PORT: u16 = 5300;
@@ -70,6 +73,7 @@ async fn handle_tls(listener: TcpListener, acceptor: tokio_native_tls::TlsAccept
                 Ok(n) => n,
                 Err(e) => return eprintln!("{e}"),
             };
+            
             let response_bytes = handle_dns_request(&buf, len).await.expect("Failed to resolve dns request.");
             stream.write_all(&response_bytes).await.expect("Failed to send packet.");
         });
@@ -77,26 +81,23 @@ async fn handle_tls(listener: TcpListener, acceptor: tokio_native_tls::TlsAccept
 }
 
 async fn handle_dns_request(bytes: &[u8], len: usize) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let packet = if len == 0 {DnsPacket::from(bytes)} else {DnsPacket::from_tcp(bytes, len)};
-    println!("Incoming Packet:\n{:#?}", packet);
+    let mut packet = if len == 0 {DnsPacket::from(bytes)} else {DnsPacket::from_tcp(bytes, len)};
+    // Check blacklist
+    packet.questions = packet.questions.iter().filter(|q| !BLACKLIST.is_blocked(&q.cname)).map(|q| q.clone()).collect();
+
     let socket = TcpStream::connect((DNS_SERVER, DNS_SERVER_PORT));
     let cx = tokio_native_tls::TlsConnector::from(native_tls::TlsConnector::builder().build()?);
+
     let mut socket = cx.connect(DNS_SERVER, socket.await?).await?;
+    socket.write_all(&packet.bytes()).await?;
 
-    let mut bytes = bytes.to_vec();
-    if len == 0 {
-        bytes = [packet.size(), bytes.to_vec()].concat()
-    }
-
-    socket.write_all(&bytes).await?;
     let mut buf = [0; 1024];
     let len = match socket.read(&mut buf).await {
         Ok(n) if n == 0 => return Ok(Vec::new()),
         Ok(n) => n,
         Err(e) => return Err(Box::new(e)),
     };
-
+    
     let packet = DnsPacket::from_tcp(&buf, len);
-    println!("Outgoing Packet:\n{:#?}\n", packet);
     Ok(packet.bytes())
 }

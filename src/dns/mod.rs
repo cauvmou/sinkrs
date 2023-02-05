@@ -73,7 +73,7 @@ impl Serialize<Vec<u8>> for Header {}
 
 #[derive(Debug, Clone)]
 pub struct Question {
-    cname: String,
+    pub cname: String,
     rr_type: u16,
     class: u16,
 }
@@ -88,10 +88,9 @@ impl Serialize<Vec<u8>> for Question {}
 
 #[derive(Debug, Clone)]
 pub struct DnsPacket {
-    len: u16,
     header: Header,
-    questions: Vec<Question>,
-    records: Vec<Record>
+    pub questions: Vec<Question>,
+    pub records: Vec<Record>
 }
 
 impl<'a> From<&'a [u8]> for DnsPacket {
@@ -114,7 +113,6 @@ impl<'a> From<&'a [u8]> for DnsPacket {
         let records = (0..header.answer_rrs)
             .map(|_| Record::new(&mut buffer)).collect::<Vec<Record>>();
         Self {
-            len: buffer.position() as u16,
             header,
             questions,
             records,
@@ -142,10 +140,6 @@ impl Into<Vec<u8>> for DnsPacket {
 }
 
 impl DnsPacket {
-    pub fn size(&self) -> Vec<u8> {
-        self.len.to_be_bytes().to_vec()
-    }
-
     pub fn from_tcp<'a>(bytes: &'a [u8], len: usize) -> Self {
         bytes[2..len].into()
     }
